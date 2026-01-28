@@ -22,3 +22,10 @@ async def create_redemption(session: AsyncSession, promo_id: int, user_id: int) 
     await session.commit()
     await session.refresh(redemption)
     return redemption
+
+
+async def has_redemption(session: AsyncSession, promo_id: int, user_id: int) -> bool:
+    result = await session.execute(
+        select(PromoRedemption).where(PromoRedemption.promo_code_id == promo_id, PromoRedemption.user_id == user_id)
+    )
+    return result.scalar_one_or_none() is not None
