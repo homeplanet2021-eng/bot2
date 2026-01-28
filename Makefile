@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed restart
+.PHONY: up down logs migrate seed restart remnawave-check
 
 up:
 	docker compose up -d --build
@@ -17,3 +17,6 @@ seed:
 
 restart:
 	docker compose restart
+
+remnawave-check:
+	docker compose exec api python -m app.integrations.remnawave.check

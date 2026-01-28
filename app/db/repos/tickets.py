@@ -22,6 +22,30 @@ async def add_message(session: AsyncSession, ticket_id: int, sender_tg_id: int, 
     return message
 
 
-async def list_tickets(session: AsyncSession, user_id: int) -> list[Ticket]:
-    result = await session.execute(select(Ticket).where(Ticket.user_id == user_id))
+async def list_tickets(session: AsyncSession, user_id: int | None) -> list[Ticket]:
+    query = select(Ticket)
+    if user_id is not None:
+        query = query.where(Ticket.user_id == user_id)
+    result = await session.execute(query)
     return list(result.scalars().all())
+
+
+async def get_ticket(session: AsyncSession, ticket_id: int, user_id: int | None) -> Ticket | None:
+    query = select(Ticket).where(Ticket.id == ticket_id)
+    if user_id is not None:
+        query = query.where(Ticket.user_id == user_id)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def list_ticket_messages(session: AsyncSession, ticket_id: int) -> list[TicketMessage]:
+    result = await session.execute(select(TicketMessage).where(TicketMessage.ticket_id == ticket_id))
+    return list(result.scalars().all())
+
+
+async def update_ticket_status(session: AsyncSession, ticket: Ticket, status: str) -> Ticket:
+    ticket.status = status
+    session.add(ticket)
+    await session.commit()
+    await session.refresh(ticket)
+    return ticket

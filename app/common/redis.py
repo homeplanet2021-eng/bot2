@@ -31,3 +31,10 @@ async def user_lock(user_id: int, ttl: int = 10) -> AsyncIterator[bool]:
         value = await client.get(lock_key)
         if value == token:
             await client.delete(lock_key)
+
+
+async def rate_limit(user_id: int, key: str, limit_seconds: int) -> bool:
+    client = get_redis()
+    bucket = f"rate:{key}:{user_id}"
+    created = await client.set(bucket, "1", nx=True, ex=limit_seconds)
+    return bool(created)

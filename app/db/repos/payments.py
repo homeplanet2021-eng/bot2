@@ -12,6 +12,10 @@ async def get_intent(session: AsyncSession, intent_id: uuid.UUID) -> PaymentInte
     return result.scalar_one_or_none()
 
 
+async def get_intent_by_id(session: AsyncSession, intent_id: uuid.UUID) -> PaymentIntent | None:
+    return await get_intent(session, intent_id)
+
+
 async def create_intent(session: AsyncSession, intent: PaymentIntent) -> PaymentIntent:
     session.add(intent)
     await session.commit()

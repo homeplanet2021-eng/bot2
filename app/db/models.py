@@ -172,6 +172,10 @@ class JobOutbox(Base):
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=5)
+    run_after: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_error: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
