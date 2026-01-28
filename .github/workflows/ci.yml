@@ -40,29 +40,24 @@ jobs:
           --health-retries 20
 
     env:
-      # DB / Redis for async SQLAlchemy
-      DATABASE_URL: postgresql+asyncpg://horizon:horizon@localhost:5432/horizon
-      REDIS_URL: redis://localhost:6379/0
+      DATABASE_URL: "postgresql+asyncpg://horizon:horizon@localhost:5432/horizon"
+      REDIS_URL: "redis://localhost:6379/0"
 
-      # Horizon constants
       ADMIN_TG_IDS: "1375385135"
       HZN_PROFILE_CLASSIC_UUID: "0ffb9199-fd3f-4204-858a-700cab0f9646"
       HZN_PROFILE_PREMIUM_UUID: "d8c73e33-4f4f-4e87-bdbe-ebcbfe2c2c92"
 
-      # Disable external integrations in CI (we only test DB/migrations/seed/imports)
       REMNAWAVE_WEBHOOK_ENABLED: "0"
       NOTIFICATIONS_ENABLED: "0"
       CABINET_ENABLED: "0"
 
-      # Remnawave config still must exist for imports/config
       REMNAWAVE_BASE_URL: "http://localhost"
       REMNAWAVE_API_MODE: "compat"
 
-      # Secret files will be created in a step below
-      BOT_TOKEN_FILE: secrets/bot_token
-      REMNAWAVE_TOKEN_FILE: secrets/remnawave_token
-      REMNAWAVE_WEBHOOK_SECRET_FILE: secrets/remnawave_webhook_secret
-      CABINET_JWT_SECRET_FILE: secrets/cabinet_jwt_secret
+      BOT_TOKEN_FILE: "secrets/bot_token"
+      REMNAWAVE_TOKEN_FILE: "secrets/remnawave_token"
+      REMNAWAVE_WEBHOOK_SECRET_FILE: "secrets/remnawave_webhook_secret"
+      CABINET_JWT_SECRET_FILE: "secrets/cabinet_jwt_secret"
 
     steps:
       - name: Checkout
@@ -77,7 +72,7 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y ripgrep postgresql-client
 
       - name: Install Python deps
         run: |
@@ -85,27 +80,31 @@ jobs:
           pip install -r requirements.txt
 
       - name: Create secret files (never printed)
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          REMNAWAVE_TOKEN: ${{ secrets.REMNAWAVE_TOKEN }}
+          REMNAWAVE_WEBHOOK_SECRET: ${{ secrets.REMNAWAVE_WEBHOOK_SECRET }}
+          CABINET_JWT_SECRET: ${{ secrets.CABINET_JWT_SECRET }}
         run: |
           mkdir -p secrets
           umask 077
-          printf '%s' "${{ secrets.BOT_TOKEN }}" > secrets/bot_token
-          printf '%s' "${{ secrets.REMNAWAVE_TOKEN }}" > secrets/remnawave_token
-          # optional secrets: if not set, create non-empty local-only values to satisfy config imports
-          if [ -n "${{ secrets.REMNAWAVE_WEBHOOK_SECRET }}" ]; then
-            printf '%s' "${{ secrets.REMNAWAVE_WEBHOOK_SECRET }}" > secrets/remnawave_webhook_secret
+
+          if [ -z "$BOT_TOKEN" ]; then echo "Missing secret BOT_TOKEN" >&2; exit 1; fi
+          if [ -z "$REMNAWAVE_TOKEN" ]; then echo "Missing secret REMNAWAVE_TOKEN" >&2; exit 1; fi
+
+          printf '%s' "$BOT_TOKEN" > secrets/bot_token
+          printf '%s' "$REMNAWAVE_TOKEN" > secrets/remnawave_token
+
+          if [ -n "$REMNAWAVE_WEBHOOK_SECRET" ]; then
+            printf '%s' "$REMNAWAVE_WEBHOOK_SECRET" > secrets/remnawave_webhook_secret
           else
-            python - <<'PY'
-import secrets, pathlib
-pathlib.Path("secrets/remnawave_webhook_secret").write_text(secrets.token_hex(32))
-PY
+            python -c "import secrets, pathlib; pathlib.Path('secrets/remnawave_webhook_secret').write_text(secrets.token_hex(32))"
           fi
-          if [ -n "${{ secrets.CABINET_JWT_SECRET }}" ]; then
-            printf '%s' "${{ secrets.CABINET_JWT_SECRET }}" > secrets/cabinet_jwt_secret
+
+          if [ -n "$CABINET_JWT_SECRET" ]; then
+            printf '%s' "$CABINET_JWT_SECRET" > secrets/cabinet_jwt_secret
           else
-            python - <<'PY'
-import secrets, pathlib
-pathlib.Path("secrets/cabinet_jwt_secret").write_text(secrets.token_hex(32))
-PY
+            python -c "import secrets, pathlib; pathlib.Path('secrets/cabinet_jwt_secret').write_text(secrets.token_hex(32))"
           fi
 
       - name: No placeholders gate
@@ -133,12 +132,6 @@ PY
         run: |
           python -m compileall -q app
 
-      - name: Import smoke (no network)
+      - name: Import smoke
         run: |
-          python - <<'PY'
-import importlib
-importlib.import_module("app.api.main")
-importlib.import_module("app.bot.main")
-importlib.import_module("app.worker.main")
-print("imports_ok")
-PY
+          python -c "import importlib; importlib.import_module('app.api.main'); importlib.import_module('app.bot.main'); importlib.import_module('app.worker.main'); print('imports_ok')"
